@@ -1,0 +1,68 @@
+function reporteMetaAdsMaestro() {
+  // ==========================================
+  // 🔴 1. CREDENCIALES Y DESTINO 🔴
+  // ==========================================
+  var META_TOKEN = "";  // TOKEN final vitalicio
+  var AD_ACCOUNT_ID = "act_0000000000000";  // ID cuenta publicitaria (debe llevar act_)
+  var SPREADSHEET_URL = "";  // URL Sheets para información
+  var EMAIL_AVISO = "matixmedia@gmail.com";
+  
+  // 🔥 ¿Cuántos meses quieres extraer en total? (Ej: 3 = Mes actual + 2 meses anteriores)
+  var MESES_A_EXTRAER = 4; 
+
+  // ==========================================
+  var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL); 
+  var mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  
+  function formatearFecha(fecha) {
+    var y = fecha.getFullYear();
+    var m = ("0" + (fecha.getMonth() + 1)).slice(-2);
+    var d = ("0" + fecha.getDate()).slice(-2);
+    return y + "-" + m + "-" + d;
+  }
+
+  function extraer(titulo, nivel, breakdown, temporal, sheetObj, filaAct, since, until) {
+    // 🔥 SOLUCIÓN AL ERROR: Codificamos las llaves y comillas para que la URL no se rompa
+    var timeRangeObj = {since: since, until: until};
+    var timeRangeEncoded = encodeURIComponent(JSON.stringify(timeRangeObj));
+    
+    var url = "https://graph.facebook.com/v25.0/" + AD_ACCOUNT_ID + "/insights?access_token=" + META_TOKEN + 
+              "&time_range=" + timeRangeEncoded + "&level=" + nivel;
+              
+    var campos = "campaign_name,adset_name,impressions,clicks,ctr,spend,actions,cost_per_action_type";
+    if (nivel === "ad") campos += ",ad_name,ad_id";
+    if (breakdown === "" || breakdown === "publisher_platform") campos += ",reach,frequency";
+    url += "&fields=" + campos + (breakdown ? "&breakdowns=" + breakdown : "") + (temporal ? "&time_increment=1" : "");
+
+    try {
+      var resp = UrlFetchApp.fetch(url);
+      var datos = JSON.parse(resp.getContentText()).data;
+      sheetObj.getRange(filaAct, 1).setValue(titulo).setFontWeight("bold").setBackground("#e1bee7");
+      filaAct++;
+      if (!datos || datos.length === 0) { return filaAct + 2; }
+
+      var cab = ["Campaña", "Público"];
+      if (nivel === "ad") cab.push("ID Ad", "Nombre Ad");
+      if (breakdown === "publisher_platform") cab.push("Plataforma");
+      if (breakdown === "age") cab.push("Edad");
+      if (breakdown === "region") cab.push("Región");
+      if (temporal) cab.push("Fecha", "Día");
+      
+      cab = cab.concat([
+        "Inversión", "Alcance", "Impr", "Clics", "CTR", "RESULTADOS META", "COSTO RES",
+        "ViewContent", "AddToCart", "InitCheckout", "Purchase", "Costo Compra",
+        "Lead", "CompleteReg", "SubmitApp", "Schedule",
+        "Iniciados", "Nuevos", "Totales", "Llamadas Totales", "Llamadas 20s", 
+        "Likes FB", "Seguidores IG"
+      ]);
+      
+      sheetObj.getRange(filaAct, 1, 1, cab.length).setValues([cab]).setFontWeight("bold").setBackground("#efefef");
+      filaAct++;
+
+      var matriz = datos.map(function(d) {
+        var gasto = parseFloat(d.spend || 0), clics = parseInt(d.clicks || 0);
+        var res = (d.actions && d.actions[0]) ? d.actions[0].value : 0;
+        var cRes = (d.cost_per_action_type && d.cost_per_action_type[0]) ? parseFloat(d.cost_per_action_type[0].value).toFixed(2) : 0;
+        
+        var vcon=0, cart=0, chk=0, pur=0, lead=0, reg=0, app=0, sch=0;
+        var m_ini=0, m_new=0, m_tot=0, l_tot=0, l_20s=0, l_fb=0, f_
