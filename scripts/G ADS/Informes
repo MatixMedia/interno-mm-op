@@ -1,1 +1,175 @@
 
+function main() {
+  // ==========================================
+  // 🔴 CONFIGURACIÓN PERSONALIZADA 🔴
+  // ==========================================
+  var SPREADSHEET_URL = "Enlace de URL DRIVE para guardar el informe";
+  var EMAIL_AVISO = "matixmedia@gmail.com";
+  var ASUNTO_ESPECIFICO = "✅ G ADS REPORT_CLIENTE";
+  
+  // 🔥 ¿Cuántos meses quieres extraer en total? (Ej: 3 = Mes actual + 2 meses anteriores)
+  var MESES_A_EXTRAER = 3; 
+  // ==========================================
+
+  var ss = SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+  var mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var nombresHojasGeneradas = [];
+  
+  // ==========================================
+  // 🔥 SOLUCIÓN DEFINITIVA A LAS ZONAS HORARIAS
+  // Obtenemos la fecha de HOY exacta en la zona horaria de la cuenta (Ej: Colombia)
+  // ==========================================
+  var timeZone = AdsApp.currentAccount().getTimeZone();
+  var fechaHoyString = Utilities.formatDate(new Date(), timeZone, 'yyyy-MM-dd');
+  
+  // Desarmamos la fecha exacta de hoy en pedazos (Año, Mes, Día)
+  var partesFecha = fechaHoyString.split('-');
+  var currYear = parseInt(partesFecha[0], 10);
+  var currMonth = parseInt(partesFecha[1], 10) - 1; // JavaScript cuenta meses de 0 a 11
+  var currDay = parseInt(partesFecha[2], 10);
+
+  // 1. PREPARAR HOJA TEMPORAL
+  var sheetTemp = ss.getSheetByName("Temp_Data");
+  if (!sheetTemp) {
+    sheetTemp = ss.insertSheet("Temp_Data");
+  }
+
+  // ==========================================
+  // 2. LISTADO BASE DE CONSULTAS
+  // ==========================================
+  var informesBase = [
+    {
+      titulo: "1. RENDIMIENTO GENERAL Y DISPOSITIVOS",
+      query: "SELECT campaign.name, campaign.status, campaign.advertising_channel_type, campaign.id, segments.device, campaign.bidding_strategy_type, segments.date, metrics.clicks, metrics.impressions, metrics.ctr, customer.currency_code, metrics.average_cpc, metrics.cost_micros, metrics.search_absolute_top_impression_share, metrics.search_top_impression_share, metrics.conversions, metrics.view_through_conversions, metrics.cost_per_conversion, metrics.conversions_from_interactions_rate FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+    },
+    {
+      titulo: "2. DETALLE DE CONVERSIONES (TIPO DE ACCIÓN)",
+      query: "SELECT campaign.name, campaign.status, segments.conversion_action_name, segments.conversion_action_category, metrics.conversions, metrics.conversions_value FROM campaign WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0 AND campaign.status = 'ENABLED'"
+    },
+    {
+      titulo: "3. EXTENSIONES DE ANUNCIOS (ASSETS)",
+      query: "SELECT campaign.name, campaign.status, campaign_asset.field_type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros FROM campaign_asset WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+    },
+    {
+      titulo: "4. DESGLOSE POR EDADES",
+      query: "SELECT campaign.name, campaign.status, ad_group_criterion.age_range.type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions FROM age_range_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+    },
+    {
+      titulo: "5. UBICACIONES GEOGRÁFICAS",
+      query: "SELECT campaign.name, campaign.status, geographic_view.country_criterion_id, geographic_view.location_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM geographic_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+    },
+    {
+      titulo: "6. TOP PALABRAS CLAVE",
+      query: "SELECT campaign.name, campaign.status, ad_group.name, ad_group.status, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND ad_group.status = 'ENABLED' AND ad_group_criterion.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.conversions DESC, metrics.clicks DESC"
+    },
+    {
+      titulo: "7. RENDIMIENTO DE LOS ANUNCIOS",
+      query: "SELECT campaign.name, campaign.status, ad_group.name, ad_group.status, ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.status, metrics.impressions, metrics.clicks, metrics.ctr, metrics.conversions, metrics.conversions_from_interactions_rate, metrics.cost_per_conversion, metrics.cost_micros FROM ad_group_ad WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND ad_group.status = 'ENABLED' AND ad_group_ad.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.cost_micros DESC"
+    }
+  ];
+
+  // ==========================================
+  // 3. BUCLE PRINCIPAL POR MESES
+  // ==========================================
+  
+  for (var m = 0; m < MESES_A_EXTRAER; m++) {
+    var targetMonth = currMonth - m;
+    var targetYear = currYear;
+    
+    // Si restamos meses y caemos en el año anterior (Ej: de Enero pasamos a Diciembre)
+    while (targetMonth < 0) {
+        targetMonth += 12;
+        targetYear--;
+    }
+
+    // Calcula mágicamente cuántos días tiene ese mes (28, 29, 30 o 31)
+    var lastDayNum = new Date(targetYear, targetMonth + 1, 0).getDate();
+    
+    // Construimos las fechas como texto (YYYY-MM-DD)
+    var mesTexto = ("0" + (targetMonth + 1)).slice(-2);
+    var sinceStr = targetYear + "-" + mesTexto + "-01";
+    var untilStr = targetYear + "-" + mesTexto + "-" + ("0" + lastDayNum).slice(-2);
+    
+    // Si estamos en el mes actual (m === 0), el corte es "ayer"
+    if (m === 0) {
+       if (currDay > 1) {
+           untilStr = targetYear + "-" + mesTexto + "-" + ("0" + (currDay - 1)).slice(-2);
+       } else {
+           untilStr = sinceStr; // Si hoy es día 1, extraemos solo el día 1
+       }
+    }
+    
+    var nombreHojaActual = "Consolidado " + mesesNombres[targetMonth] + " " + targetYear;
+    
+    nombresHojasGeneradas.push(nombreHojaActual);
+    Logger.log("Procesando: " + nombreHojaActual + " (Desde " + sinceStr + " hasta " + untilStr + ")");
+
+    var sheetMes = ss.getSheetByName(nombreHojaActual);
+    if (!sheetMes) {
+      sheetMes = ss.insertSheet(nombreHojaActual);
+    }
+    sheetMes.clear();
+    var filaActual = 1;
+
+    for (var i = 0; i < informesBase.length; i++) {
+      var informe = informesBase[i];
+
+      sheetMes.getRange(filaActual, 1).setValue(informe.titulo)
+        .setFontWeight("bold")
+        .setFontSize(12)
+        .setBackground("#cfe2f3"); 
+      filaActual++;
+
+      sheetTemp.clear();
+      
+      var queryDinamico = informe.query.replace(
+        "segments.date DURING LAST_30_DAYS", 
+        "segments.date BETWEEN '" + sinceStr + "' AND '" + untilStr + "'"
+      );
+
+      try {
+        var report = AdsApp.report(queryDinamico);
+        report.exportToSheet(sheetTemp);
+
+        var ultimaFilaTemp = sheetTemp.getLastRow();
+        var ultimaColumnaTemp = sheetTemp.getLastColumn();
+
+        if (ultimaFilaTemp > 0 && ultimaColumnaTemp > 0) {
+          var datos = sheetTemp.getRange(1, 1, ultimaFilaTemp, ultimaColumnaTemp).getValues();
+          sheetMes.getRange(filaActual, 1, ultimaFilaTemp, ultimaColumnaTemp).setValues(datos);
+
+          sheetMes.getRange(filaActual, 1, 1, ultimaColumnaTemp)
+            .setFontWeight("bold")
+            .setBackground("#efefef");
+
+          filaActual += ultimaFilaTemp + 2; 
+        } else {
+          sheetMes.getRange(filaActual, 1).setValue("No hay datos registrados en este periodo (" + sinceStr + " al " + untilStr + ").");
+          filaActual += 3;
+        }
+      } catch (e) {
+        Logger.log("Error en " + informe.titulo + ": " + e.message);
+        sheetMes.getRange(filaActual, 1).setValue("Error al extraer datos: " + e.message);
+        filaActual += 3;
+      }
+    }
+  }
+
+  if(ss.getSheetByName("Temp_Data")){
+    ss.deleteSheet(ss.getSheetByName("Temp_Data"));
+  }
+
+  try {
+    MailApp.sendEmail(
+      EMAIL_AVISO, 
+      ASUNTO_ESPECIFICO + " - Actualización de Históricos", 
+      "Hola, tu Mega-Informe Consolidado ya está listo.\n\n" +
+      "Se han generado/actualizado las siguientes pestañas:\n" +
+      "- " + nombresHojasGeneradas.join("\n- ") + "\n\n" +
+      "Revísalo aquí: " + SPREADSHEET_URL
+    );
+    Logger.log("¡Éxito! El informe multi-mes se ha generado y enviado correctamente.");
+  } catch (err) {
+    Logger.log("Error al enviar el correo: " + err.message);
+  }
+}
