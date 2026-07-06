@@ -1,0 +1,853 @@
+/**
+ * ============================================================
+ *  CLIENTE — SCRIPT DE DIAGNÓSTICO COMPLETO · GOOGLE ADS
+ *  Genera un Google Sheet con 10 pestañas de análisis
+ *  
+ *  INSTRUCCIONES:
+ *  1. Ve a Google Ads → Herramientas → Scripts
+ *  2. Crea un nuevo script y pega este código completo
+ *  3. Cambia SPREADSHEET_URL por la URL de un Google Sheet
+ *     en blanco que hayas creado (o déjalo vacío para crear uno nuevo)
+ *  4. Ajusta DATE_RANGE si quieres otro período
+ *  5. Haz clic en "Ejecutar" (autoriza los permisos la primera vez)
+ *  6. El Sheet se llenará automáticamente en ~1–2 minutos
+ * ============================================================
+ */
+
+// ── CONFIGURACIÓN ──────────────────────────────────────────
+var SPREADSHEET_URL = 'Pega la URL DRIVE del documento donde quedará el Informe';   // Déjalo vacío para crear uno nuevo automáticamente
+
+// Opciones válidas: 'LAST_7_DAYS' | 'LAST_14_DAYS' | 'LAST_30_DAYS' | 'LAST_MONTH' | 'LAST_90_DAYS'
+// LAST_90_DAYS se convierte automáticamente a rango de fechas exacto
+var DATE_RANGE      = 'LAST_90_DAYS';
+var ACCOUNT_NAME    = 'CLIENTE - ID DE CUENTA';
+// ───────────────────────────────────────────────────────────
+
+// Convierte DATE_RANGE a la cláusula WHERE correcta para GAQL
+function buildDateClause(range) {
+  // GAQL solo acepta estos rangos con DURING:
+  var validDuring = ['TODAY','YESTERDAY','LAST_7_DAYS','LAST_14_DAYS',
+                     'LAST_30_DAYS','LAST_BUSINESS_WEEK','THIS_MONTH',
+                     'LAST_MONTH','THIS_WEEK_SUN_TODAY','THIS_WEEK_MON_TODAY',
+                     'LAST_WEEK_SUN_SAT','LAST_WEEK_MON_SUN'];
+
+  if (validDuring.indexOf(range) !== -1) {
+    return 'WHERE segments.date DURING ' + range;
+  }
+
+  // Para rangos personalizados (ej. LAST_90_DAYS) usar fechas explícitas
+  var today = new Date();
+  var days  = parseInt(range.replace('LAST_', '').replace('_DAYS', ''), 10) || 30;
+  var from  = new Date(today.getTime() - days * 24 * 60 * 60 * 1000);
+  var fmt   = function(d) { return Utilities.formatDate(d, AdsApp.currentAccount().getTimeZone(), 'yyyy-MM-dd'); };
+  return "WHERE segments.date BETWEEN '" + fmt(from) + "' AND '" + fmt(today) + "'";
+}
+
+function main() {
+  var ss = getOrCreateSpreadsheet();
+  var dateLabel = getDateLabel(DATE_RANGE);
+  // Variable global usada por todas las pestañas
+  DATE_CLAUSE = buildDateClause(DATE_RANGE);
+
+  log('Iniciando extracción · ' + dateLabel);
+
+  tab_Resumen(ss, dateLabel);
+  tab_Campanas(ss, dateLabel);
+  tab_GruposAnuncios(ss, dateLabel);
+  tab_Keywords(ss, dateLabel);
+  tab_TerminosBusqueda(ss, dateLabel);
+  tab_Anuncios(ss, dateLabel);
+  tab_AssetsPerformance(ss, dateLabel);
+  tab_Geografico(ss, dateLabel);
+  tab_Dispositivos(ss, dateLabel);
+  tab_DiaSemana(ss, dateLabel);
+
+  // Eliminar hoja por defecto si quedó vacía
+  try {
+    var defSheet = ss.getSheetByName('Sheet1') || ss.getSheetByName('Hoja1') || ss.getSheetByName('Hoja 1');
+    if (defSheet && ss.getSheets().length > 1) ss.deleteSheet(defSheet);
+  } catch(e) {}
+
+  log('✅ Completado. Spreadsheet: ' + ss.getUrl());
+  Logger.log('URL del informe: ' + ss.getUrl());
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 1 · RESUMEN EJECUTIVO
+// ══════════════════════════════════════════════════════════════
+function tab_Resumen(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '1. Resumen');
+  sheet.clear();
+  styleHeader(sheet, '1 · RESUMEN EJECUTIVO — ' + ACCOUNT_NAME, dateLabel);
+
+  var query = 'SELECT '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_per_conversion '
+    + 'FROM customer '
+    + DATE_CLAUSE;
+
+  var rows = AdsApp.search(query);
+  var data = [['Métrica', 'Valor', 'Referencia ideal']];
+
+  while (rows.hasNext()) {
+    var r = rows.next();
+    var cost    = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = r.metrics.ctr > 0 ? (convs / r.metrics.clicks) * 100 : 0;
+
+    data.push(['Impresiones',           fmt(r.metrics.impressions),           '—']);
+    data.push(['Clics',                 fmt(r.metrics.clicks),                '—']);
+    data.push(['CTR',                   pct(r.metrics.ctr),                   '> 3% Search / > 1% Display']);
+    data.push(['CPC promedio (COP)',     '$' + fmt(r.metrics.averageCpc / 1e6), '—']);
+    data.push(['Inversión total (COP)',  '$' + fmt(cost),                      '—']);
+    data.push(['Conversiones',          fmt(convs),                           '—']);
+    data.push(['Valor conversiones (COP)', '$' + fmt(convVal),                '—']);
+    data.push(['ROAS',                  roas.toFixed(2) + '×',               '> 3× mínimo / > 5× óptimo']);
+    data.push(['CVR (tasa conversión)',  cvr.toFixed(2) + '%',               '> 2% e-commerce']);
+    data.push(['Costo / conversión (COP)', '$' + fmt(r.metrics.costPerConversion / 1e6), '< ticket promedio × margen']);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, 3);
+  sheet.setColumnWidth(1, 260);
+  sheet.setColumnWidth(2, 180);
+  sheet.setColumnWidth(3, 240);
+  log('✔ Resumen');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 2 · CAMPAÑAS
+// ══════════════════════════════════════════════════════════════
+function tab_Campanas(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '2. Campañas');
+  sheet.clear();
+  styleHeader(sheet, '2 · RENDIMIENTO POR CAMPAÑA', dateLabel);
+
+  var headers = ['Campaña','Tipo','Estado','Presupuesto/día (COP)',
+    'Impres.','Clics','CTR','CPC prom (COP)','Inversión (COP)',
+    'Conv.','Valor conv (COP)','ROAS','CVR','Costo/conv (COP)',
+    'Nivel optimización','Estrategia oferta'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'campaign.advertising_channel_type, '
+    + 'campaign.status, '
+    + 'campaign_budget.amount_micros, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_per_conversion, '
+    + 'campaign.bidding_strategy_type '
+    + 'FROM campaign '
+    + DATE_CLAUSE
+    + ' AND campaign.status != "REMOVED" '
+    + 'ORDER BY metrics.cost_micros DESC';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r = rows.next();
+    var cost    = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+    var budget  = r.campaignBudget ? r.campaignBudget.amountMicros / 1e6 : 0;
+
+    data.push([
+      r.campaign.name,
+      r.campaign.advertisingChannelType,
+      r.campaign.status,
+      '$' + fmt(budget),
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%',
+      '$' + fmt(r.metrics.costPerConversion / 1e6),
+      '—',
+      r.campaign.biddingStrategyType || '—'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Campañas');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 3 · GRUPOS DE ANUNCIOS
+// ══════════════════════════════════════════════════════════════
+function tab_GruposAnuncios(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '3. Grupos de anuncios');
+  sheet.clear();
+  styleHeader(sheet, '3 · GRUPOS DE ANUNCIOS', dateLabel);
+
+  var headers = ['Campaña','Grupo de anuncio','Estado',
+    'Impres.','Clics','CTR','CPC prom (COP)','Inversión (COP)',
+    'Conv.','Valor conv (COP)','ROAS','CVR','Costo/conv (COP)'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'ad_group.name, '
+    + 'ad_group.status, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_per_conversion '
+    + 'FROM ad_group '
+    + DATE_CLAUSE
+    + ' AND ad_group.status != "REMOVED" '
+    + 'ORDER BY metrics.cost_micros DESC';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r = rows.next();
+    var cost   = r.metrics.costMicros / 1e6;
+    var convVal= r.metrics.conversionsValue;
+    var convs  = r.metrics.conversions;
+    var clicks = r.metrics.clicks;
+    var roas   = cost > 0 ? (convVal / cost) : 0;
+    var cvr    = clicks > 0 ? (convs / clicks * 100) : 0;
+
+    data.push([
+      r.campaign.name,
+      r.adGroup.name,
+      r.adGroup.status,
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%',
+      '$' + fmt(r.metrics.costPerConversion / 1e6)
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Grupos de anuncios');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 4 · KEYWORDS
+// ══════════════════════════════════════════════════════════════
+function tab_Keywords(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '4. Keywords');
+  sheet.clear();
+  styleHeader(sheet, '4 · PALABRAS CLAVE', dateLabel);
+
+  var headers = ['Campaña','Grupo','Keyword','Tipo concordancia','Estado',
+    'Quality Score','Exp. clic (QS)','Exp. anuncio (QS)','Exp. pág. destino (QS)',
+    'Impres.','Clics','CTR','CPC prom (COP)','Inversión (COP)',
+    'Conv.','Valor conv (COP)','ROAS','CVR','Costo/conv (COP)',
+    'Posición prom.'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'ad_group.name, '
+    + 'ad_group_criterion.keyword.text, '
+    + 'ad_group_criterion.keyword.match_type, '
+    + 'ad_group_criterion.status, '
+    + 'ad_group_criterion.quality_info.quality_score, '
+    + 'ad_group_criterion.quality_info.creative_quality_score, '
+    + 'ad_group_criterion.quality_info.post_click_quality_score, '
+    + 'ad_group_criterion.quality_info.search_predicted_ctr, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_per_conversion '
+    + 'FROM keyword_view '
+    + DATE_CLAUSE
+    + ' AND ad_group_criterion.status != "REMOVED" '
+    + 'ORDER BY metrics.cost_micros DESC '
+    + 'LIMIT 500';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r   = rows.next();
+    var kw  = r.adGroupCriterion;
+    var cost    = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+    var qi      = kw.qualityInfo || {};
+
+    data.push([
+      r.campaign.name,
+      r.adGroup.name,
+      kw.keyword ? kw.keyword.text : '—',
+      kw.keyword ? kw.keyword.matchType : '—',
+      kw.status,
+      qi.qualityScore || '—',
+      qi.creativeQualityScore || '—',
+      qi.postClickQualityScore || '—',
+      qi.searchPredictedCtr || '—',
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%',
+      '$' + fmt(r.metrics.costPerConversion / 1e6),
+      '—'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Keywords');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 5 · TÉRMINOS DE BÚSQUEDA
+// ══════════════════════════════════════════════════════════════
+function tab_TerminosBusqueda(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '5. Términos búsqueda');
+  sheet.clear();
+  styleHeader(sheet, '5 · TÉRMINOS DE BÚSQUEDA (lo que la gente escribe)', dateLabel);
+
+  var headers = ['Campaña','Grupo','Término de búsqueda','Keyword coincidente',
+    'Tipo coincidencia','Impres.','Clics','CTR',
+    'CPC prom (COP)','Inversión (COP)','Conv.','Valor conv (COP)',
+    'ROAS','CVR','Estado búsqueda'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'ad_group.name, '
+    + 'search_term_view.search_term, '
+    + 'search_term_view.status, '
+    + 'segments.keyword.info.text, '
+    + 'segments.keyword.info.match_type, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value '
+    + 'FROM search_term_view '
+    + DATE_CLAUSE
+    + ' ORDER BY metrics.cost_micros DESC '
+    + 'LIMIT 500';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var cost = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+    var kwInfo  = (r.segments && r.segments.keyword) ? r.segments.keyword.info : {};
+
+    data.push([
+      r.campaign.name,
+      r.adGroup.name,
+      r.searchTermView.searchTerm,
+      kwInfo.text || '—',
+      kwInfo.matchType || '—',
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%',
+      r.searchTermView.status || '—'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+
+  // Colorear términos sin conversión con mucho gasto
+  highlightWasteTerms(sheet, data);
+  log('✔ Términos de búsqueda');
+}
+
+function highlightWasteTerms(sheet, data) {
+  // Resaltar en amarillo filas con > $5.000 COP gasto y 0 conversiones
+  for (var i = 1; i < data.length; i++) {
+    var row   = data[i];
+    var gasto = parseFloat(String(row[9]).replace(/[$,.]/g, '')) || 0;
+    var convs = parseFloat(row[10]) || 0;
+    if (gasto > 5000 && convs === 0) {
+      sheet.getRange(i + 3, 1, 1, row.length)
+           .setBackground('#FFF3CD');
+    }
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 6 · ANUNCIOS
+// ══════════════════════════════════════════════════════════════
+function tab_Anuncios(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '6. Anuncios');
+  sheet.clear();
+  styleHeader(sheet, '6 · ANUNCIOS (copies y rendimiento)', dateLabel);
+
+  var headers = ['Campaña','Grupo','Tipo anuncio','Titular 1','Titular 2','Titular 3',
+    'Descripción 1','URL final','Estado',
+    'Impres.','Clics','CTR','Conv.','Valor conv (COP)','ROAS','CVR','Calidad'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'ad_group.name, '
+    + 'ad_group_ad.ad.type, '
+    + 'ad_group_ad.ad.responsive_search_ad.headlines, '
+    + 'ad_group_ad.ad.responsive_search_ad.descriptions, '
+    + 'ad_group_ad.ad.final_urls, '
+    + 'ad_group_ad.status, '
+    + 'ad_group_ad.ad_strength, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_micros '
+    + 'FROM ad_group_ad '
+    + DATE_CLAUSE
+    + ' AND ad_group_ad.status != "REMOVED" '
+    + 'ORDER BY metrics.impressions DESC '
+    + 'LIMIT 200';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var ad   = r.adGroupAd.ad;
+    var cost = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+
+    // Extraer headlines y descripciones de RSA
+    var h1 = '—', h2 = '—', h3 = '—', d1 = '—';
+    if (ad.responsiveSearchAd) {
+      var headlines = ad.responsiveSearchAd.headlines || [];
+      var descs     = ad.responsiveSearchAd.descriptions || [];
+      h1 = headlines[0] ? headlines[0].text : '—';
+      h2 = headlines[1] ? headlines[1].text : '—';
+      h3 = headlines[2] ? headlines[2].text : '—';
+      d1 = descs[0] ? descs[0].text : '—';
+    }
+
+    var finalUrl = (ad.finalUrls && ad.finalUrls[0]) ? ad.finalUrls[0] : '—';
+
+    data.push([
+      r.campaign.name,
+      r.adGroup.name,
+      ad.type,
+      h1, h2, h3, d1,
+      finalUrl,
+      r.adGroupAd.status,
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%',
+      r.adGroupAd.adStrength || '—'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Anuncios');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 7 · ASSETS P-MAX
+// ══════════════════════════════════════════════════════════════
+function tab_AssetsPerformance(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '7. Assets P-Max');
+  sheet.clear();
+  styleHeader(sheet, '7 · ASSETS Y GRUPOS DE ACTIVOS (P-Max)', dateLabel);
+
+  var headers = ['Campaña','Asset group','Estado','Título del asset','Tipo',
+    'Rendimiento','Impres.','Clics','Conv.','Valor conv (COP)','ROAS'];
+
+  var query = 'SELECT '
+    + 'campaign.name, '
+    + 'asset_group.name, '
+    + 'asset_group.status, '
+    + 'asset_group_asset.field_type, '
+    + 'asset.text_asset.text, '
+    + 'asset.type, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value, '
+    + 'metrics.cost_micros '
+    + 'FROM asset_group_asset '
+    + DATE_CLAUSE
+    + ' ORDER BY metrics.impressions DESC '
+    + 'LIMIT 300';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var cost = r.metrics.costMicros / 1e6;
+    var roas = cost > 0 ? (r.metrics.conversionsValue / cost) : 0;
+    var texto = (r.asset && r.asset.textAsset) ? r.asset.textAsset.text : '(imagen/video/URL)';
+
+    data.push([
+      r.campaign.name,
+      r.assetGroup.name,
+      r.assetGroup.status,
+      texto,
+      r.asset ? r.asset.type : '—',
+      '—',
+      fmt(r.metrics.impressions),
+      fmt(r.metrics.clicks),
+      r.metrics.conversions.toFixed(1),
+      '$' + fmt(r.metrics.conversionsValue),
+      roas.toFixed(2) + '×'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+
+  // Colorear según rendimiento del asset
+  for (var i = 1; i < data.length; i++) {
+    var perf = data[i][5];
+    var color = '';
+    if (perf === 'BEST')  color = '#D4EDDA';
+    if (perf === 'GOOD')  color = '#EAF3DE';
+    if (perf === 'LOW')   color = '#F8D7DA';
+    if (perf === 'LEARNING') color = '#FFF3CD';
+    if (color) sheet.getRange(i + 3, 6, 1, 1).setBackground(color);
+  }
+
+  autoResizeCols(sheet, headers.length);
+  log('✔ Assets P-Max');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 8 · GEOGRAFÍA
+// ══════════════════════════════════════════════════════════════
+function tab_Geografico(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '8. Geografía');
+  sheet.clear();
+  styleHeader(sheet, '8 · RENDIMIENTO GEOGRÁFICO', dateLabel);
+
+  var headers = ['Ciudad/Región','País','Campaña','Impres.','Clics','CTR',
+    'CPC prom (COP)','Inversión (COP)','Conv.','Valor conv (COP)','ROAS','CVR'];
+
+  var query = 'SELECT '
+    + 'geographic_view.country_criterion_id, '
+    + 'campaign.name, '
+    + 'segments.geo_target_city, '
+    + 'segments.geo_target_region, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value '
+    + 'FROM geographic_view '
+    + DATE_CLAUSE
+    + ' ORDER BY metrics.cost_micros DESC '
+    + 'LIMIT 200';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var cost = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+    var ciudad  = (r.segments && r.segments.geoTargetCity) ? r.segments.geoTargetCity : '—';
+    var region  = (r.segments && r.segments.geoTargetRegion) ? r.segments.geoTargetRegion : '—';
+
+    data.push([
+      ciudad, region,
+      r.campaign.name,
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Geografía');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 9 · DISPOSITIVOS
+// ══════════════════════════════════════════════════════════════
+function tab_Dispositivos(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '9. Dispositivos');
+  sheet.clear();
+  styleHeader(sheet, '9 · RENDIMIENTO POR DISPOSITIVO', dateLabel);
+
+  var headers = ['Dispositivo','Campaña','Impres.','Clics','CTR',
+    'CPC prom (COP)','Inversión (COP)','Conv.','Valor conv (COP)','ROAS','CVR'];
+
+  var query = 'SELECT '
+    + 'segments.device, '
+    + 'campaign.name, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value '
+    + 'FROM campaign '
+    + DATE_CLAUSE
+    + ' AND campaign.status != "REMOVED" '
+    + 'ORDER BY segments.device, metrics.cost_micros DESC';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var cost = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+
+    data.push([
+      r.segments.device,
+      r.campaign.name,
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Dispositivos');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// PESTAÑA 10 · DÍA DE LA SEMANA
+// ══════════════════════════════════════════════════════════════
+function tab_DiaSemana(ss, dateLabel) {
+  var sheet = getOrCreateSheet(ss, '10. Día y hora');
+  sheet.clear();
+  styleHeader(sheet, '10 · RENDIMIENTO POR DÍA DE LA SEMANA', dateLabel);
+
+  var headers = ['Día semana','Campaña','Impres.','Clics','CTR',
+    'CPC prom (COP)','Inversión (COP)','Conv.','Valor conv (COP)','ROAS','CVR'];
+
+  var query = 'SELECT '
+    + 'segments.day_of_week, '
+    + 'campaign.name, '
+    + 'metrics.impressions, '
+    + 'metrics.clicks, '
+    + 'metrics.ctr, '
+    + 'metrics.average_cpc, '
+    + 'metrics.cost_micros, '
+    + 'metrics.conversions, '
+    + 'metrics.conversions_value '
+    + 'FROM campaign '
+    + DATE_CLAUSE
+    + ' AND campaign.status != "REMOVED" '
+    + 'ORDER BY segments.day_of_week, metrics.cost_micros DESC';
+
+  var rows = AdsApp.search(query);
+  var data = [headers];
+  var dayMap = {
+    'MONDAY':'Lunes','TUESDAY':'Martes','WEDNESDAY':'Miércoles',
+    'THURSDAY':'Jueves','FRIDAY':'Viernes','SATURDAY':'Sábado','SUNDAY':'Domingo'
+  };
+
+  while (rows.hasNext()) {
+    var r    = rows.next();
+    var cost = r.metrics.costMicros / 1e6;
+    var convVal = r.metrics.conversionsValue;
+    var convs   = r.metrics.conversions;
+    var clicks  = r.metrics.clicks;
+    var roas    = cost > 0 ? (convVal / cost) : 0;
+    var cvr     = clicks > 0 ? (convs / clicks * 100) : 0;
+    var dia     = dayMap[r.segments.dayOfWeek] || r.segments.dayOfWeek;
+
+    data.push([
+      dia,
+      r.campaign.name,
+      fmt(r.metrics.impressions),
+      fmt(clicks),
+      pct(r.metrics.ctr),
+      '$' + fmt(r.metrics.averageCpc / 1e6),
+      '$' + fmt(cost),
+      convs.toFixed(1),
+      '$' + fmt(convVal),
+      roas.toFixed(2) + '×',
+      cvr.toFixed(2) + '%'
+    ]);
+  }
+
+  sheet.getRange(3, 1, data.length, data[0].length).setValues(data);
+  applyTableStyle(sheet, 3, data.length, headers.length);
+  autoResizeCols(sheet, headers.length);
+  log('✔ Día de la semana');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// UTILIDADES
+// ══════════════════════════════════════════════════════════════
+
+function getOrCreateSpreadsheet() {
+  if (SPREADSHEET_URL && SPREADSHEET_URL.length > 10) {
+    return SpreadsheetApp.openByUrl(SPREADSHEET_URL);
+  }
+  var ss = SpreadsheetApp.create('HUA · Diagnóstico Google Ads · ' + Utilities.formatDate(new Date(), 'America/Bogota', 'dd-MM-yyyy'));
+  Logger.log('Nuevo spreadsheet creado: ' + ss.getUrl());
+  return ss;
+}
+
+function getOrCreateSheet(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  return sheet;
+}
+
+function styleHeader(sheet, title, subtitle) {
+  sheet.getRange(1, 1).setValue(title)
+    .setFontSize(13).setFontWeight('bold').setFontColor('#1a1a1a');
+  sheet.getRange(2, 1).setValue(subtitle + '  |  Generado: ' + Utilities.formatDate(new Date(), 'America/Bogota', 'dd/MM/yyyy HH:mm'))
+    .setFontSize(10).setFontColor('#666666').setFontStyle('italic');
+}
+
+function applyTableStyle(sheet, startRow, numRows, numCols) {
+  if (numRows < 1) return;
+  // Header row
+  var headerRange = sheet.getRange(startRow, 1, 1, numCols);
+  headerRange.setBackground('#1a3a5c').setFontColor('#FFFFFF')
+             .setFontWeight('bold').setFontSize(10);
+  // Alternating rows
+  for (var i = 1; i < numRows; i++) {
+    var bg = i % 2 === 0 ? '#F8F9FA' : '#FFFFFF';
+    sheet.getRange(startRow + i, 1, 1, numCols).setBackground(bg);
+  }
+  // Borders
+  sheet.getRange(startRow, 1, numRows, numCols)
+       .setBorder(true, true, true, true, true, true, '#DDDDDD',
+                  SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.setFrozenRows(startRow);
+}
+
+function autoResizeCols(sheet, numCols) {
+  for (var i = 1; i <= numCols; i++) {
+    sheet.autoResizeColumn(i);
+    var w = sheet.getColumnWidth(i);
+    if (w > 280) sheet.setColumnWidth(i, 280);
+    if (w < 80)  sheet.setColumnWidth(i, 80);
+  }
+}
+
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function pct(n) {
+  if (!n) return '0.00%';
+  return (n * 100).toFixed(2) + '%';
+}
+
+function getDateLabel(range) {
+  var labels = {
+    'LAST_7_DAYS':  'Últimos 7 días',
+    'LAST_30_DAYS': 'Últimos 30 días',
+    'LAST_90_DAYS': 'Últimos 90 días'
+  };
+  return labels[range] || range;
+}
+
+function log(msg) {
+  Logger.log('[diag_MM Script] ' + msg);
+}
