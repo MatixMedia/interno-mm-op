@@ -6,7 +6,7 @@ function main() {
   var EMAIL_AVISO = "matixmedia@gmail.com";
   var ASUNTO_ESPECIFICO = "✅ G ADS REPORT_CLIENTE";
   
-  // 🔥 ¿Cuántos meses quieres extraer en total?
+  // 🔥 ¿Cuántos meses quieres extraer en total? (Ej: 3 = Mes actual + 2 meses anteriores)
   var MESES_A_EXTRAER = 3; 
   // ==========================================
 
@@ -14,57 +14,56 @@ function main() {
   var mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   var nombresHojasGeneradas = [];
   
+  // ==========================================
+  // 🔥 SOLUCIÓN DEFINITIVA A LAS ZONAS HORARIAS
+  // Obtenemos la fecha de HOY exacta en la zona horaria de la cuenta
+  // ==========================================
   var timeZone = AdsApp.currentAccount().getTimeZone();
   var fechaHoyString = Utilities.formatDate(new Date(), timeZone, 'yyyy-MM-dd');
   
+  // Desarmamos la fecha exacta de hoy en pedazos (Año, Mes, Día)
   var partesFecha = fechaHoyString.split('-');
   var currYear = parseInt(partesFecha[0], 10);
-  var currMonth = parseInt(partesFecha[1], 10) - 1; 
+  var currMonth = parseInt(partesFecha[1], 10) - 1; // JavaScript cuenta meses de 0 a 11
   var currDay = parseInt(partesFecha[2], 10);
 
+  // 1. PREPARAR HOJA TEMPORAL
   var sheetTemp = ss.getSheetByName("Temp_Data");
   if (!sheetTemp) {
     sheetTemp = ss.insertSheet("Temp_Data");
   }
 
   // ==========================================
-  // 2. LISTADO MEJORADO DE CONSULTAS
+  // 2. LISTADO MEJORADO DE CONSULTAS (BLINDADO CON CAMPAIGN.STATUS)
   // ==========================================
   var informesBase = [
     {
-      // 🟢 Mejorado: Ahora incluye 'all_conversions' para atrapar TODO tipo de conversión, primaria y secundaria.
       titulo: "1. RENDIMIENTO GENERAL Y DISPOSITIVOS",
       query: "SELECT campaign.name, campaign.status, campaign.advertising_channel_type, segments.device, campaign.bidding_strategy_type, segments.date, metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc, metrics.cost_micros, metrics.conversions, metrics.all_conversions, metrics.conversions_value, metrics.all_conversions_value, metrics.cost_per_all_conversions, metrics.conversions_from_interactions_rate FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
     },
     {
-      // 🟢 Mejorado: Removido el filtro 'metrics.conversions > 0' para que muestre TODAS las acciones, incluso si este mes tuvieron 0 conversiones.
       titulo: "2. DETALLE DE CONVERSIONES (TIPO DE ACCIÓN)",
-      query: "SELECT campaign.name, segments.conversion_action_name, segments.conversion_action_category, metrics.conversions, metrics.all_conversions, metrics.conversions_value, metrics.all_conversions_value FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+      query: "SELECT campaign.name, campaign.status, segments.conversion_action_name, segments.conversion_action_category, metrics.conversions, metrics.all_conversions, metrics.conversions_value, metrics.all_conversions_value FROM campaign WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
     },
     {
-      // 🟢 Mejorado: Simplificado a 'asset_group_asset' y 'campaign_asset' cruzado de forma que no arroje errores de compatibilidad.
       titulo: "3. EXTENSIONES DE ANUNCIOS Y ACTIVOS (ASSETS)",
-      query: "SELECT campaign.name, campaign_asset.field_type, asset.type, asset.text_asset.text, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.all_conversions FROM campaign_asset WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+      query: "SELECT campaign.name, campaign.status, campaign_asset.field_type, asset.type, asset.text_asset.text, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.all_conversions FROM campaign_asset WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
     },
     {
-      // 🟢 Mejorado: Agregado all_conversions
       titulo: "4. DESGLOSE POR EDADES",
-      query: "SELECT campaign.name, ad_group_criterion.age_range.type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM age_range_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+      query: "SELECT campaign.name, campaign.status, ad_group_criterion.age_range.type, metrics.impressions, metrics.clicks, metrics.ctr, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM age_range_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
     },
     {
-      // 🟢 Mejorado: Agregado all_conversions
       titulo: "5. UBICACIONES GEOGRÁFICAS",
-      query: "SELECT campaign.name, geographic_view.country_criterion_id, geographic_view.location_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM geographic_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
+      query: "SELECT campaign.name, campaign.status, geographic_view.country_criterion_id, geographic_view.location_type, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM geographic_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'"
     },
     {
-      // 🟢 Mejorado: Ordenado por 'all_conversions' para que no oculte palabras clave de ventas indirectas
       titulo: "6. TOP PALABRAS CLAVE",
-      query: "SELECT campaign.name, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.all_conversions DESC, metrics.clicks DESC"
+      query: "SELECT campaign.name, campaign.status, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.all_conversions FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.all_conversions DESC, metrics.clicks DESC"
     },
     {
-      // 🟢 Mejorado: Agregado all_conversions y removidos filtros de estado de ad_group que limitan la data
       titulo: "7. RENDIMIENTO DE LOS ANUNCIOS",
-      query: "SELECT campaign.name, ad_group.name, ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.status, metrics.impressions, metrics.clicks, metrics.ctr, metrics.conversions, metrics.all_conversions, metrics.cost_per_all_conversions, metrics.cost_micros FROM ad_group_ad WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.cost_micros DESC"
+      query: "SELECT campaign.name, campaign.status, ad_group.name, ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.status, metrics.impressions, metrics.clicks, metrics.ctr, metrics.conversions, metrics.all_conversions, metrics.cost_per_all_conversions, metrics.cost_micros FROM ad_group_ad WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED' AND metrics.impressions > 0 ORDER BY metrics.cost_micros DESC"
     }
   ];
 
@@ -76,22 +75,26 @@ function main() {
     var targetMonth = currMonth - m;
     var targetYear = currYear;
     
+    // Si restamos meses y caemos en el año anterior
     while (targetMonth < 0) {
         targetMonth += 12;
         targetYear--;
     }
 
+    // Calcula cuántos días tiene ese mes
     var lastDayNum = new Date(targetYear, targetMonth + 1, 0).getDate();
     
+    // Construimos las fechas como texto (YYYY-MM-DD)
     var mesTexto = ("0" + (targetMonth + 1)).slice(-2);
     var sinceStr = targetYear + "-" + mesTexto + "-01";
     var untilStr = targetYear + "-" + mesTexto + "-" + ("0" + lastDayNum).slice(-2);
     
+    // Si estamos en el mes actual, el corte es "ayer"
     if (m === 0) {
        if (currDay > 1) {
            untilStr = targetYear + "-" + mesTexto + "-" + ("0" + (currDay - 1)).slice(-2);
        } else {
-           untilStr = sinceStr;
+           untilStr = sinceStr; // Si hoy es día 1, extraemos solo el día 1
        }
     }
     
