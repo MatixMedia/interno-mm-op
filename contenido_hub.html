@@ -1,3 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub de Contenido · MatixMedia</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',system-ui,sans-serif;background:#04050A;color:#FDFCF7;}
+    input[type=date]{color-scheme:dark;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-track{background:#0C0D13;}
+    ::-webkit-scrollbar-thumb{background:#1E1F28;border-radius:2px;}
+    select option{background:#1A1B24;color:#FDFCF7;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    const {useState,useMemo,useEffect,useRef}=React;
+
 import { useState, useMemo, useEffect, useCallback } from "react";
 
 const C={bg:"#04050A",bg2:"#0C0D13",bg3:"#14151C",bg4:"#1A1B24",accent:"#E8C046",teal:"#199477",red:"#CF343A",blue:"#4A9EE0",purple:"#7C3AED",ink:"#FDFCF7",dim:"#A8A598",muted:"#5A5A52",line:"#1E1F28"};
@@ -1270,7 +1295,7 @@ function PiezaCard({pieza,clienteNombre,mes,onEstado,onFecha}){
   const urgente=pieza.objetivo.includes("⚠️ grabar");
   const confirmar=pieza.objetivo.includes("⚠️ confirmar");
   const border=pub?"rgba(124,58,237,.3)":niv===3?"rgba(207,52,58,.5)":niv>=1?"rgba(232,192,70,.35)":"#1E1F28";
-  const cambiar=e=>{onEstado(e);setEd(false);sendPrompt('HUB_UPDATE estado="'+e+'" pieza="'+pieza.id+'" cliente="'+clienteNombre+'" mes="'+mes+'"');};
+  const cambiar=e=>{onEstado(e);setEd(false);};
   return(
     <div style={{background:"#0C0D13",border:"1px solid "+border,borderRadius:10,padding:"14px 16px",marginBottom:10,transition:"border-color .2s"}}>
       {urgente&&<div style={{fontSize:9,color:"#CF343A",fontFamily:"monospace",fontWeight:600,marginBottom:6}}>⚠️ URGENTE — GRABAR ESTA SEMANA</div>}
@@ -1306,7 +1331,7 @@ function PiezaCard({pieza,clienteNombre,mes,onEstado,onFecha}){
   );
 }
 
-export default function App(){
+function App(){
   const now=new Date();
   const mesActual=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
   const [cid,setCid]=useState("jairo");
@@ -1331,26 +1356,22 @@ export default function App(){
   };
 
   useEffect(()=>{
-    (async()=>{
-      try{
-        const stored=await window.storage.get("hub_full_data",true);
-        if(stored&&stored.value){
-          const storedData=JSON.parse(stored.value);
-          const merged=mergeWithLatest(storedData,HUB);
-          setData(merged);
-          const newIds=Object.values(merged.contenido).flat().filter(Boolean).map(p=>p.id);
-          const oldIds=Object.values(storedData.contenido).flat().filter(Boolean).map(p=>p.id);
-          if(newIds.length!==oldIds.length){
-            await window.storage.set("hub_full_data",JSON.stringify(merged),true);
-          }
-        }else{
-          const seed=JSON.parse(JSON.stringify(HUB));
-          setData(seed);
-          await window.storage.set("hub_full_data",JSON.stringify(seed),true);
-        }
-      }catch(e){setData(JSON.parse(JSON.stringify(HUB)));}
-      setLoaded(true);
-    })();
+    try{
+      const raw=localStorage.getItem("hub_full_data");
+      if(raw){
+        const storedData=JSON.parse(raw);
+        const merged=mergeWithLatest(storedData,HUB);
+        setData(merged);
+        const nIds=Object.values(merged.contenido).flat().filter(Boolean).map(p=>p.id);
+        const oIds=Object.values(storedData.contenido).flat().filter(Boolean).map(p=>p.id);
+        if(nIds.length!==oIds.length) localStorage.setItem("hub_full_data",JSON.stringify(merged));
+      }else{
+        const seed=JSON.parse(JSON.stringify(HUB));
+        setData(seed);
+        localStorage.setItem("hub_full_data",JSON.stringify(seed));
+      }
+    }catch(e){setData(JSON.parse(JSON.stringify(HUB)));}
+    setLoaded(true);
   },[]);
 
   const saveOverride=(mesKey,pieceId,changes)=>{
@@ -1362,9 +1383,10 @@ export default function App(){
           .filter(Boolean)
           .map(p=>p&&p.id===pieceId?{...p,...changes}:p);
       }
-      window.storage.set("hub_full_data",JSON.stringify(next),true)
-        .then(()=>{setSaveMsg("✅ Guardado");setTimeout(()=>setSaveMsg(""),1500);})
-        .catch(()=>{setSaveMsg("⚠️ Error");setTimeout(()=>setSaveMsg(""),2000);});
+      try{
+        localStorage.setItem("hub_full_data",JSON.stringify(next));
+        setSaveMsg("✅ Guardado");setTimeout(()=>setSaveMsg(""),1500);
+      }catch(e){setSaveMsg("⚠️ Error");setTimeout(()=>setSaveMsg(""),2000);}
       return next;
     });
   };
@@ -1475,3 +1497,10 @@ export default function App(){
     </div>
   );
 }
+
+
+    const root=ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
