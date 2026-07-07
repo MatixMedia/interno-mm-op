@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- ETIQUETA PARA OCULTAR LA PÁGINA DE GOOGLE Y BUSCADORES -->
     <meta name="robots" content="noindex, nofollow">
-    
     <title>Centro de Recursos - MatixMedia</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -57,8 +55,10 @@
         .report-footer{background:var(--bg-2);border-top:1px solid var(--line);padding:24px 0;margin-top:32px; width: 100%;}
         .footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px; max-width: 1024px; margin: 0 auto; padding: 0 24px;}
         .footer-brand{display:flex;align-items:center;gap:10px}
-        .footer-logo{width:38px;height:38px;border-radius:50%;overflow:hidden;border:2px solid var(--accent); display:flex; justify-content:center; align-items:center; background:#fff;}
-        .footer-logo svg{width:100%;height:100%;}
+        
+        .footer-logo{width:42px;height:42px;border-radius:50%;overflow:hidden;border:2px solid var(--accent); display:flex; justify-content:center; align-items:center; background:#fff; padding:4px;}
+        .footer-logo img{width:100%;height:100%;object-fit:contain;}
+        
         .footer-name{font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600}
         .footer-sub{font-size:9px;color:var(--ink-dim)}
         .footer-date{font-family:var(--mono);font-size:9px;color:var(--ink-dim);margin-top:2px}
@@ -76,45 +76,32 @@
 <body class="min-h-screen flex flex-col justify-between items-center">
     <div class="w-full max-w-5xl p-4 md:p-8 flex-1">
         
-        <!-- Header con Logo SVG Integrado -->
         <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1E1F28] pb-6 mt-4">
             <div class="flex items-center gap-4">
-                <div class="w-14 h-14 rounded-full border-2 border-[#E8C046] bg-white flex justify-center items-center overflow-hidden shrink-0">
-                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:100%;">
-                        <circle cx="50" cy="50" r="48" fill="#fff"/>
-                        <circle cx="50" cy="50" r="46" fill="none" stroke="#e1251b" stroke-width="2"/>
-                        <circle cx="50" cy="50" r="43" fill="none" stroke="#E8C046" stroke-width="2"/>
-                        <circle cx="50" cy="50" r="40" fill="none" stroke="#199477" stroke-width="2"/>
-                        <path d="M 30 25 L 45 50 L 30 75 L 40 75 L 50 58 L 60 75 L 70 75 L 55 50 L 70 25 L 60 25 L 50 42 L 40 25 Z" fill="#0C0D13"/>
-                        <path d="M 22 50 L 42 40 L 48 53 L 80 40" fill="none" stroke="#E8C046" stroke-width="1.5"/>
-                        <circle cx="22" cy="50" r="3.5" fill="#e1251b"/>
-                        <polygon points="78,36 84,40 78,44" fill="#199477"/>
-                    </svg>
+                <div class="w-14 h-14 rounded-full border-2 border-[#E8C046] bg-white flex justify-center items-center overflow-hidden shrink-0 p-1">
+                    <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/main/logo-oficial.png" alt="Logo MatixMedia" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none';">
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold text-accent">Centro de Recursos</h1>
                     <p class="text-sm text-[#A8A598]" style="font-family: var(--mono)">MatixMedia Portal</p>
                 </div>
             </div>
-            
             <div class="flex items-center gap-2 shrink-0">
-                <button onclick="sincronizarGitHub()" id="btnSync" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                <button onclick="location.reload()" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center text-[#A8A598] hover:text-white" title="Refrescar">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    <span id="syncText">Sincronizar Repositorios</span>
                 </button>
-                <button onclick="location.reload()" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] p-2 rounded-lg text-[#A8A598] hover:text-white transition-colors" title="Recargar y limpiar">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <button onclick="sincronizarGitHub()" id="btnSync" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                    <span id="syncText">Sincronizar Repositorios</span>
                 </button>
             </div>
         </header>
 
-        <!-- Barra de Búsqueda -->
         <div class="relative mb-6">
             <input type="text" id="searchInput" oninput="renderizarInformes()" disabled placeholder="Haz clic en Sincronizar para escanear todos los repositorios..." class="w-full bg-[#14151C] border border-[#1E1F28] rounded-xl p-4 pl-12 text-sm focus:border-[#E8C046] outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="font-family: var(--mono)">
             <svg class="w-5 h-5 absolute left-4 top-4 text-[#A8A598]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
 
-        <!-- Pestañas de Filtrado -->
         <div class="channel-bar" id="tabs-container">
             <div class="ch-tab active" onclick="setFiltroTipo('Todos', this)"><span class="ch-dot"></span>Todos</div>
             <div class="ch-tab" onclick="setFiltroTipo('Informe', this)"><span class="ch-dot" style="color: var(--teal)"></span>Informes</div>
@@ -123,10 +110,8 @@
             <div class="ch-tab" onclick="setFiltroTipo('HUB de contenido', this)"><span class="ch-dot" style="color: var(--blue)"></span>HUB de contenido</div>
         </div>
 
-        <!-- Alertas de Error -->
         <div id="errorMsg" class="hidden mb-4 p-4 rounded-lg bg-[rgba(207,52,58,0.1)] border border-[rgba(207,52,58,0.3)] text-[#CF343A] text-sm" style="font-family: var(--mono)"></div>
 
-        <!-- Resultados -->
         <div class="bg-[#14151C] rounded-xl border border-[#1E1F28] shadow-lg overflow-hidden flex flex-col">
             <div class="bg-[#0C0D13] px-4 py-3 border-b border-[#1E1F28] flex justify-between items-center text-xs" style="font-family: var(--mono)">
                 <span class="text-[#A8A598] font-medium uppercase tracking-wider">Documentos Encontrados</span>
@@ -141,20 +126,11 @@
         </div>
     </div>
 
-    <!-- FOOTER MATIXMEDIA -->
     <div class="report-footer">
       <div class="footer-inner">
         <div class="footer-brand">
           <div class="footer-logo">
-              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="50" cy="50" r="46" fill="none" stroke="#e1251b" stroke-width="2"/>
-                  <circle cx="50" cy="50" r="43" fill="none" stroke="#E8C046" stroke-width="2"/>
-                  <circle cx="50" cy="50" r="40" fill="none" stroke="#199477" stroke-width="2"/>
-                  <path d="M 30 25 L 45 50 L 30 75 L 40 75 L 50 58 L 60 75 L 70 75 L 55 50 L 70 25 L 60 25 L 50 42 L 40 25 Z" fill="#0C0D13"/>
-                  <path d="M 22 50 L 42 40 L 48 53 L 80 40" fill="none" stroke="#E8C046" stroke-width="1.5"/>
-                  <circle cx="22" cy="50" r="3.5" fill="#e1251b"/>
-                  <polygon points="78,36 84,40 78,44" fill="#199477"/>
-              </svg>
+              <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/main/logo-oficial.png" alt="Logo MatixMedia">
           </div>
           <div>
             <div class="footer-name"><a href="https://www.matixmedia.com.co" target="_blank">MatixMedia</a></div>
@@ -179,6 +155,26 @@
 
     <script>
         // ==========================================
+        // ESCUDO ANTI-CURIOSOS (Bloqueo de Inspección)
+        // ==========================================
+        document.addEventListener('contextmenu', event => event.preventDefault()); 
+        
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'F12' || event.keyCode === 123) {
+                event.preventDefault();
+            }
+            if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'i' || event.key === 'J' || event.key === 'j' || event.key === 'C' || event.key === 'c' || event.keyCode === 73 || event.keyCode === 74 || event.keyCode === 67)) {
+                event.preventDefault();
+            }
+            if (event.ctrlKey && (event.key === 'U' || event.key === 'u' || event.keyCode === 85)) {
+                event.preventDefault();
+            }
+            if (event.ctrlKey && (event.key === 'S' || event.key === 's' || event.keyCode === 83)) {
+                event.preventDefault();
+            }
+        });
+
+        // ==========================================
         // CONFIGURACIÓN PRINCIPAL DE FUENTES
         // ==========================================
         const FUENTES_DATOS = [
@@ -190,11 +186,10 @@
             {
                 usuario: "MatixMedia",
                 repo: "interno-mm-op",
-                dominio: "interno.matix.media"
+                dominio: "interno.matix.media" 
             }
         ];
         
-        // Token mantenido en código para futuras implementaciones, botón oculto temporalmente.
         const BITLY_TOKEN = "61700ed51e442eba0a7f49dc327f4b9607c14668"; 
         
         let todosLosDocumentos = [];
@@ -207,7 +202,6 @@
             const errDiv = document.getElementById('errorMsg');
             errDiv.innerHTML = msg;
             errDiv.classList.remove('hidden');
-            // No ocultar el error automáticamente si es de límite de API para que el usuario pueda leerlo.
             if(!msg.includes('Límite')) {
                 setTimeout(() => errDiv.classList.add('hidden'), 8000);
             }
@@ -220,27 +214,19 @@
 
             syncText.innerHTML = '<span class="loader"></span> Sincronizando repositorios...';
             btnSync.disabled = true;
-            document.getElementById('errorMsg').classList.add('hidden'); // Limpiar errores previos
+            document.getElementById('errorMsg').classList.add('hidden');
 
             let documentosCombinados = [];
             let erroresDetectados = [];
 
             try {
-                // Hacer peticiones a cada repositorio configurado
                 let promesas = FUENTES_DATOS.map(async (fuente) => {
                     try {
                         const res = await fetch(`https://api.github.com/repos/${fuente.usuario}/${fuente.repo}/git/trees/main?recursive=1`);
                         
-                        // Control específico de errores comunes de la API de GitHub
-                        if (res.status === 404) {
-                            throw new Error(`El repositorio "${fuente.repo}" no existe o es PRIVADO.`);
-                        }
-                        if (res.status === 403) {
-                            throw new Error(`Límite de peticiones de GitHub excedido (60/hora). Intenta de nuevo más tarde.`);
-                        }
-                        if (!res.ok) {
-                            throw new Error(`Error ${res.status} al leer el repositorio "${fuente.repo}".`);
-                        }
+                        if (res.status === 404) throw new Error(`El repositorio "${fuente.repo}" no existe o es PRIVADO.`);
+                        if (res.status === 403) throw new Error(`Límite de peticiones de GitHub excedido (60/hora). Intenta de nuevo más tarde.`);
+                        if (!res.ok) throw new Error(`Error ${res.status} al leer el repositorio "${fuente.repo}".`);
                         
                         const data = await res.json();
                         const docs = data.tree
@@ -258,22 +244,18 @@
                     }
                 });
 
-                // Esperamos a que terminen todas las peticiones
                 await Promise.all(promesas);
 
-                // Si hubo algún error en alguno de los repositorios, mostramos la advertencia
                 if (erroresDetectados.length > 0) {
                     showError(`<strong>Avisos durante la sincronización:</strong><br><ul class="list-disc pl-5 mt-2"><li>${erroresDetectados.join('</li><li>')}</li></ul>`);
                 }
 
-                // Si no logró cargar NADA de información, detenemos el proceso
                 if (documentosCombinados.length === 0) {
                     syncText.innerText = 'Sincronización Fallida';
                     btnSync.disabled = false;
                     return; 
                 }
 
-                // Si llegó hasta aquí, al menos un repositorio cargó bien
                 todosLosDocumentos = documentosCombinados;
                 
                 syncText.innerText = 'Repositorios Sincronizados';
@@ -300,12 +282,9 @@
             renderizarInformes();
         }
 
-        // Regla inteligente para clasificar y obtener cliente
         function clasificarDocumento(info) {
-            if (info.repoOrigen.toLowerCase().includes('hub')) {
-                return 'HUB de contenido';
-            }
-
+            if (info.repoOrigen.toLowerCase().includes('hub')) return 'HUB de contenido';
+            
             const lower = info.path.toLowerCase();
             if (lower.includes('informe')) return 'Informe';
             if (lower.includes('audit')) return 'Auditoría';
@@ -337,23 +316,17 @@
 
             aMostrar.forEach((info, index) => {
                 const urlCompleta = `https://${info.dominio}/${info.path}`;
-                
                 const partesRuta = info.path.split('/');
                 let cliente = "General"; 
                 let nombreArchivo = partesRuta[partesRuta.length - 1]; 
 
-                // NUEVA LÓGICA INTELIGENTE PARA ENCONTRAR AL CLIENTE
-                // Buscamos el índice de la carpeta "clientes" en la ruta
+                // LÓGICA INTELIGENTE PARA ENCONTRAR AL CLIENTE
                 const indexClientes = partesRuta.findIndex(part => part.toLowerCase() === 'clientes');
                 
-                // Si encontramos "clientes" y hay al menos una carpeta después de ella
                 if (indexClientes !== -1 && partesRuta.length > indexClientes + 1) {
-                    // El cliente SIEMPRE será la carpeta que sigue inmediatamente después de "clientes"
                     cliente = partesRuta[indexClientes + 1];
-                } 
-                // Si no está en una carpeta "clientes" pero sí en una subcarpeta (ej: para el HUB)
-                else if (partesRuta.length > 1) {
-                    cliente = partesRuta[partesRuta.length - 2]; 
+                } else if (partesRuta.length > 1) {
+                    cliente = partesRuta[partesRuta.length - 2];
                 }
 
                 const tipo = clasificarDocumento(info);
@@ -371,8 +344,17 @@
                     }
                 }
 
-                const textoMensaje = `¡Hola! ${cliente} En el siguiente link encontrarás el documento (${tipo}) actualizado a ${mesEncontrado}:\n\n${urlCompleta}`;
-                const asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipo}`;
+                let textoMensaje = "";
+                let asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipo}`;
+
+                if (tipo === 'HUB de contenido') {
+                    textoMensaje = `¡Hola! Aquí tienes el acceso directo al HUB de Contenido actualizado:\n\n${urlCompleta}`;
+                    asuntoCorreo = `HUB de Contenido - MatixMedia`;
+                } else if (tipo === 'Informe') {
+                    textoMensaje = `¡Hola! ${cliente} En el siguiente link encontrarás el documento (${tipo}) actualizado a ${mesEncontrado}:\n\n${urlCompleta}`;
+                } else {
+                    textoMensaje = `¡Hola! ${cliente} En el siguiente link encontrarás el documento de ${tipo} solicitado:\n\n${urlCompleta}`;
+                }
                 
                 const linkWA = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`;
                 const linkEmail = `mailto:?subject=${encodeURIComponent(asuntoCorreo)}&body=${encodeURIComponent(textoMensaje)}`;
@@ -381,11 +363,12 @@
                     <div class="bg-[#0c0d13] border border-[#1E1F28] rounded-lg p-4 hover:border-[#A8A598] transition-colors">
                         <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
                             <div class="overflow-hidden flex-1">
-                                <div class="mb-2">
+                                <div class="mb-2 flex items-center gap-2">
                                     <span class="badge-status ${badgeClass}">${tipo}</span>
+                                    <span class="text-accent text-xs font-bold tracking-wider uppercase truncate" style="font-family: var(--mono);">${cliente}</span>
                                 </div>
                                 <h3 class="font-bold text-[#FDFCF7] text-sm truncate">
-                                    <span class="text-accent">${cliente}</span> / ${nombreArchivo.replace('.html','')}
+                                    ${nombreArchivo.replace('.html','')}
                                 </h3>
                                 <p class="text-xs text-[#A8A598] mt-1 truncate select-all" style="font-family: var(--mono);" id="url-${index}">${urlCompleta}</p>
                             </div>
@@ -405,14 +388,6 @@
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                     Correo
                                 </a>
-
-                                <!-- Botón Acortar (Oculto temporalmente) -->
-                                <!--
-                                <button onclick="generarLinkCortoBitly('${urlCompleta}', ${index}, '${cliente}', '${mesEncontrado}', '${tipo}', this)" class="bg-accent hover:bg-[#d1ab3e] text-[#0c0d13] font-bold text-xs px-3 py-2 rounded transition-colors flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                                    Acortar (Bitly)
-                                </button>
-                                -->
                                 
                                 <button onclick="copiarAlPortapapelesDirecto('url-${index}', this)" class="bg-[#14151C] hover:bg-[#1E1F28] text-[#FDFCF7] text-xs px-3 py-2 rounded border border-[#1E1F28] transition-colors flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>
@@ -427,7 +402,6 @@
             contenedor.innerHTML = html;
         }
 
-        // Función del acortador (Inactiva visualmente)
         async function generarLinkCortoBitly(urlLarga, indexId, cliente, mesEncontrado, tipoDoc, boton) {
             if (!BITLY_TOKEN || BITLY_TOKEN.trim() === "") {
                 showError("No hay token de Bitly configurado.");
@@ -458,8 +432,17 @@
                 
                 document.getElementById(`url-${indexId}`).innerHTML = `<span class="text-[#199477] font-bold">${urlCorta}</span>`;
                 
-                const textoMensajeNuevo = `¡Hola! ${cliente} En el siguiente link encontrarás el documento (${tipoDoc}) actualizado a ${mesEncontrado}:\n\n${urlCorta}`;
-                const asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipoDoc}`;
+                let textoMensajeNuevo = "";
+                let asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipoDoc}`;
+
+                if (tipoDoc === 'HUB de contenido') {
+                    textoMensajeNuevo = `¡Hola! Aquí tienes el acceso directo al HUB de Contenido actualizado:\n\n${urlCorta}`;
+                    asuntoCorreo = `HUB de Contenido - MatixMedia`;
+                } else if (tipoDoc === 'Informe') {
+                    textoMensajeNuevo = `¡Hola! ${cliente} En el siguiente link encontrarás el documento (${tipoDoc}) actualizado a ${mesEncontrado}:\n\n${urlCorta}`;
+                } else {
+                    textoMensajeNuevo = `¡Hola! ${cliente} En el siguiente link encontrarás el documento de ${tipoDoc} solicitado:\n\n${urlCorta}`;
+                }
                 
                 document.getElementById(`wa-${indexId}`).href = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensajeNuevo)}`;
                 document.getElementById(`email-${indexId}`).href = `mailto:?subject=${encodeURIComponent(asuntoCorreo)}&body=${encodeURIComponent(textoMensajeNuevo)}`;
