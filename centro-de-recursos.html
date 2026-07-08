@@ -6,8 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Centro de Recursos - MatixMedia</title>
     
-    <!-- FAVICON AGREGADO AQUÍ -->
-    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/04037d5282967f35f0aaaa61126307d4c25e6e9a/logo-oficial.png">
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/9479956aa727b81bf736abc2e34cd6e7c9ac5fa6/logo-oficial.png">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -81,12 +80,10 @@
 <body class="min-h-screen flex flex-col justify-between items-center">
     <div class="w-full max-w-5xl p-4 md:p-8 flex-1">
         
-        <!-- Header -->
         <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1E1F28] pb-6 mt-4">
             <div class="flex items-center gap-4">
-                <!-- Centrado absoluto en el logo superior con la nueva URL -->
                 <div class="w-14 h-14 rounded-full border-2 border-[#E8C046] flex justify-center items-center overflow-hidden shrink-0">
-                    <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/04037d5282967f35f0aaaa61126307d4c25e6e9a/logo-oficial.png" alt="Logo MatixMedia" style="width: 100%; height: 100%; object-fit: cover; object-position: center; transform-origin: center; transform: scale(1.05);" onerror="this.style.display='none';">
+                    <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/9479956aa727b81bf736abc2e34cd6e7c9ac5fa6/logo-oficial.png" alt="Logo MatixMedia" style="width: 100%; height: 100%; object-fit: cover; object-position: center; transform-origin: center; transform: scale(1.05);" onerror="this.style.display='none';">
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold text-accent">Centro de Recursos</h1>
@@ -104,13 +101,11 @@
             </div>
         </header>
 
-        <!-- Barra de Búsqueda -->
         <div class="relative mb-6">
             <input type="text" id="searchInput" oninput="renderizarInformes()" disabled placeholder="Buscar cliente, marca o mes (Ej: megapagos)..." class="w-full bg-[#14151C] border border-[#1E1F28] rounded-xl p-4 pl-12 text-sm focus:border-[#E8C046] outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="font-family: var(--mono)">
             <svg class="w-5 h-5 absolute left-4 top-4 text-[#A8A598]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
 
-        <!-- Pestañas de Filtrado -->
         <div class="channel-bar" id="tabs-container">
             <div class="ch-tab active" onclick="setFiltroTipo('Todos', this)"><span class="ch-dot"></span>Todos</div>
             <div class="ch-tab" onclick="setFiltroTipo('Informe', this)"><span class="ch-dot" style="color: var(--teal)"></span>Informes</div>
@@ -119,10 +114,8 @@
             <div class="ch-tab" onclick="setFiltroTipo('HUB de contenido', this)"><span class="ch-dot" style="color: var(--blue)"></span>HUB de contenido</div>
         </div>
 
-        <!-- Alertas de Error -->
         <div id="errorMsg" class="hidden mb-4 p-4 rounded-lg bg-[rgba(207,52,58,0.1)] border border-[rgba(207,52,58,0.3)] text-[#CF343A] text-sm" style="font-family: var(--mono)"></div>
 
-        <!-- Resultados -->
         <div class="bg-[#14151C] rounded-xl border border-[#1E1F28] shadow-lg overflow-hidden flex flex-col">
             <div class="bg-[#0C0D13] px-4 py-3 border-b border-[#1E1F28] flex justify-between items-center text-xs" style="font-family: var(--mono)">
                 <span class="text-[#A8A598] font-medium uppercase tracking-wider">Documentos Encontrados</span>
@@ -137,13 +130,11 @@
         </div>
     </div>
 
-    <!-- FOOTER MATIXMEDIA -->
     <div class="report-footer">
       <div class="footer-inner">
         <div class="footer-brand">
           <div class="footer-logo">
-              <!-- Logo en el footer con la nueva URL -->
-              <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/04037d5282967f35f0aaaa61126307d4c25e6e9a/logo-oficial.png" alt="Logo MatixMedia">
+              <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/9479956aa727b81bf736abc2e34cd6e7c9ac5fa6/logo-oficial.png" alt="Logo MatixMedia">
           </div>
           <div>
             <div class="footer-name"><a href="https://www.matixmedia.com.co" target="_blank">MatixMedia</a></div>
@@ -376,13 +367,11 @@
                     <div class="bg-[#0c0d13] border border-[#1E1F28] rounded-lg p-4 hover:border-[#A8A598] transition-colors">
                         <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
                             <div class="overflow-hidden flex-1">
-                                <!-- AQUÍ OCURRE LA MAGIA: Etiqueta y Cliente en color texto gris, Tipografía Monoespaciada -->
                                 <div class="mb-2 flex items-center gap-3">
                                     <span class="badge-status ${badgeClass}">${tipo}</span>
                                     <span class="text-[#A8A598] text-xs font-medium tracking-wider uppercase truncate" style="font-family: var(--mono);">${cliente}</span>
                                 </div>
                                 
-                                <!-- Abajo va únicamente la información del archivo -->
                                 <h3 class="text-[#FDFCF7] text-sm truncate mb-1">
                                     ${nombreArchivo.replace('.html','')}
                                 </h3>
