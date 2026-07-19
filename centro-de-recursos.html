@@ -6,6 +6,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Centro de Recursos - MatixMedia</title>
     
+    <!-- FAVICON -->
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/9479956aa727b81bf736abc2e34cd6e7c9ac5fa6/logo-oficial.png">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -233,12 +234,18 @@
                         const res = await fetch(`https://api.github.com/repos/${fuente.usuario}/${fuente.repo}/git/trees/main?recursive=1`);
                         
                         if (res.status === 404) throw new Error(`El repositorio "${fuente.repo}" no existe o es PRIVADO.`);
-                        if (res.status === 403) throw new Error(`Límite de peticiones de GitHub excedido (60/hora). Intenta de nuevo más tarde.`);
-                        if (!res.ok) throw new Error(`Error ${res.status} al leer el repositorio "${fuente.repo}".`);
+                        if (res.status === 403) throw new Error(`Límite de peticiones de GitHub excedido. Intenta más tarde.`);
+                        if (!res.ok) throw new Error(`Error ${res.status} en repositorio "${fuente.repo}".`);
                         
                         const data = await res.json();
                         const docs = data.tree
-                            .filter(item => item.type === 'blob' && item.path.endsWith('.html') && !item.path.includes('404.html') && !item.path.includes('buscador.html'))
+                            .filter(item => 
+                                item.type === 'blob' && 
+                                item.path.endsWith('.html') && 
+                                !item.path.includes('404.html') && 
+                                !item.path.includes('buscador.html')
+                                // Eliminamos el bloqueo a la carpeta 'ir' para poder emparejarlos
+                            )
                             .map(item => ({
                                 path: item.path,
                                 dominio: fuente.dominio,
@@ -255,7 +262,7 @@
                 await Promise.all(promesas);
 
                 if (erroresDetectados.length > 0) {
-                    showError(`<strong>Avisos durante la sincronización:</strong><br><ul class="list-disc pl-5 mt-2"><li>${erroresDetectados.join('</li><li>')}</li></ul>`);
+                    showError(`<strong>Avisos:</strong><br><ul class="list-disc pl-5 mt-2"><li>${erroresDetectados.join('</li><li>')}</li></ul>`);
                 }
 
                 if (documentosCombinados.length === 0) {
@@ -264,7 +271,8 @@
                     return; 
                 }
 
-                todosLosDocumentos = documentosCombinados;
+                // Aquí procesamos y fusionamos duplicados antes de guardar en todosLosDocumentos
+                todosLosDocumentos = procesarDocumentosUnificados(documentosCombinados);
                 
                 syncText.innerText = 'Repositorios Sincronizados';
                 btnSync.classList.add('text-[#199477]', 'border-[#199477]');
@@ -282,6 +290,102 @@
             }
         }
 
+        // ==========================================
+        // CEREBRO DE FUSIÓN (LONG URL + SHORT URL)
+        // ==========================================
+        function procesarDocumentosUnificados(docs) {
+            let docsIR = [];
+            let docsReal = [];
+            
+            // Separar enlaces cortos y enlaces reales
+            docs.forEach(doc => {
+                if (doc.path.toLowerCase().startsWith('ir/')) {
+                    docsIR.push(doc);
+                } else {
+                    docsReal.push(doc);
+                }
+            });
+
+            let unificados = [];
+            let realDocsMatched = new Set();
+
+            // Para cada Shortlink (IR), buscamos su archivo real
+            docsIR.forEach(irDoc => {
+                let partesIr = irDoc.path.split('/');
+                let nombreIr = partesIr[partesIr.length - 1].replace('.html', '');
+                
+                let matchingReal = [...docsReal]
+                    .sort((a, b) => b.path.length - a.path.length) // Busca primero el match más exacto
+                    .find(realDoc => {
+                        let partesReal = realDoc.path.split('/');
+                        let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
+                        if(nombreReal.length < 4) return false; 
+                        return nombreIr.toLowerCase().includes(nombreReal.toLowerCase());
+                    });
+
+                if (matchingReal) {
+                    realDocsMatched.add(matchingReal.path); // Marcamos el archivo real como "fusionado"
+                    unificados.push({
+                        dominio: irDoc.dominio,
+                        realPath: matchingReal.path,        // ABRIR usará esta ruta larga
+                        shortPath: irDoc.path,              // COPIAR/WA usará esta ruta corta
+                        clienteExtraido: extraerCliente(matchingReal.path), // Extrae cliente de la carpeta original
+                        tituloMostrado: nombreIr,
+                        tipoClasificado: clasificarTipo(matchingReal.path, matchingReal.repoOrigen)
+                    });
+                } else {
+                    unificados.push({
+                        dominio: irDoc.dominio,
+                        realPath: irDoc.path,
+                        shortPath: irDoc.path,
+                        clienteExtraido: 'General',
+                        tituloMostrado: nombreIr,
+                        tipoClasificado: clasificarTipo(irDoc.path, irDoc.repoOrigen)
+                    });
+                }
+            });
+
+            // Agregamos los archivos reales que NO tienen shortlink creado (Para que nada quede por fuera)
+            docsReal.forEach(realDoc => {
+                if (!realDocsMatched.has(realDoc.path)) {
+                    let partesReal = realDoc.path.split('/');
+                    let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
+                    unificados.push({
+                        dominio: realDoc.dominio,
+                        realPath: realDoc.path,
+                        shortPath: realDoc.path, // Al no tener shortlink, usan su propia ruta
+                        clienteExtraido: extraerCliente(realDoc.path),
+                        tituloMostrado: nombreReal,
+                        tipoClasificado: clasificarTipo(realDoc.path, realDoc.repoOrigen)
+                    });
+                }
+            });
+
+            return unificados;
+        }
+
+        function extraerCliente(path) {
+            const partes = path.split('/');
+            const indexClientes = partes.findIndex(part => part.toLowerCase() === 'clientes');
+            let clienteRaw = "General";
+            if (indexClientes !== -1 && partes.length > indexClientes + 1) {
+                clienteRaw = partes[indexClientes + 1];
+            } else if (partes.length > 1) {
+                clienteRaw = partes[partes.length - 2];
+            }
+            try { return decodeURIComponent(clienteRaw); } catch(e) { return clienteRaw; }
+        }
+
+        function clasificarTipo(path, repoOrigen) {
+            if (repoOrigen && repoOrigen.toLowerCase().includes('hub')) return 'HUB de contenido';
+            const lower = path.toLowerCase();
+            if (lower.includes('informe')) return 'Informe';
+            if (lower.includes('audit')) return 'Auditoría';
+            if (lower.includes('estrategia') || lower.includes('strategy')) return 'Estrategia';
+            if (lower.includes('hub') || lower.includes('contenido')) return 'HUB de contenido';
+            return 'Otro';
+        }
+
         function setFiltroTipo(tipo, elemento) {
             filtroActual = tipo;
             const tabs = document.querySelectorAll('.ch-tab');
@@ -290,25 +394,14 @@
             renderizarInformes();
         }
 
-        function clasificarDocumento(info) {
-            if (info.repoOrigen.toLowerCase().includes('hub')) return 'HUB de contenido';
-            
-            const lower = info.path.toLowerCase();
-            if (lower.includes('informe')) return 'Informe';
-            if (lower.includes('audit')) return 'Auditoría';
-            if (lower.includes('estrategia') || lower.includes('strategy')) return 'Estrategia';
-            if (lower.includes('hub') || lower.includes('contenido')) return 'HUB de contenido';
-            return 'Otro';
-        }
-
         function renderizarInformes() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const contenedor = document.getElementById('contenedorResultados');
             
             const filtrados = todosLosDocumentos.filter(info => {
-                const coincideTexto = info.path.toLowerCase().includes(query);
-                const tipoDoc = clasificarDocumento(info);
-                const coincideTipo = filtroActual === 'Todos' || tipoDoc === filtroActual;
+                const searchStr = (info.tituloMostrado + " " + info.clienteExtraido + " " + info.realPath + " " + info.shortPath).toLowerCase();
+                const coincideTexto = searchStr.includes(query);
+                const coincideTipo = filtroActual === 'Todos' || info.tipoClasificado === filtroActual;
                 return coincideTexto && coincideTipo;
             });
 
@@ -323,27 +416,13 @@
             let html = '';
 
             aMostrar.forEach((info, index) => {
-                // 1. RUTA LARGA ORIGINAL (Para abrir el informe directamente)
-                const urlCompleta = `https://${info.dominio}/${info.path}`;
+                const urlCorta = `https://${info.dominio}/${info.shortPath}`;
+                const urlLarga = `https://${info.dominio}/${info.realPath}`;
                 
-                const partesRuta = info.path.split('/');
-                let cliente = "General"; 
-                let nombreArchivo = partesRuta[partesRuta.length - 1]; 
-                
-                // 2. RUTA CORTA NATIVA (Para botones de compartir)
-                // Se asume que la carpeta 'ir' aloja el mismo nombre de archivo
-                const urlCorta = `https://${info.dominio}/ir/${nombreArchivo}`;
+                const cliente = info.clienteExtraido;
+                const tipo = info.tipoClasificado;
+                const titulo = info.tituloMostrado;
 
-                // LÓGICA INTELIGENTE PARA ENCONTRAR AL CLIENTE
-                const indexClientes = partesRuta.findIndex(part => part.toLowerCase() === 'clientes');
-                
-                if (indexClientes !== -1 && partesRuta.length > indexClientes + 1) {
-                    cliente = partesRuta[indexClientes + 1];
-                } else if (partesRuta.length > 1) {
-                    cliente = partesRuta[partesRuta.length - 2];
-                }
-
-                const tipo = clasificarDocumento(info);
                 let badgeClass = 'badge-otro';
                 if (tipo === 'Informe') badgeClass = 'badge-informe';
                 if (tipo === 'Auditoría') badgeClass = 'badge-auditoria';
@@ -352,13 +431,13 @@
 
                 let mesEncontrado = "reciente";
                 for (let i = 0; i < mesesDelAnio.length; i++) {
-                    if (nombreArchivo.toLowerCase().includes(mesesDelAnio[i])) {
+                    if (titulo.toLowerCase().includes(mesesDelAnio[i])) {
                         mesEncontrado = "el mes de " + mesesDelAnio[i].charAt(0).toUpperCase() + mesesDelAnio[i].slice(1);
                         break;
                     }
                 }
 
-                // Generación de mensajes usando urlCorta para que no vean la url larga
+                // Generación de mensajes usando urlCorta
                 let textoMensaje = "";
                 let asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipo}`;
 
@@ -378,29 +457,28 @@
                     <div class="bg-[#0c0d13] border border-[#1E1F28] rounded-lg p-4 hover:border-[#A8A598] transition-colors">
                         <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
                             <div class="overflow-hidden flex-1">
-                                <!-- AQUÍ OCURRE LA MAGIA: Etiqueta y Cliente en color texto gris, Tipografía Monoespaciada -->
+                                <!-- AQUÍ OCURRE LA MAGIA: Muestra cliente extraído de la ruta larga -->
                                 <div class="mb-2 flex items-center gap-3">
                                     <span class="badge-status ${badgeClass}">${tipo}</span>
                                     <span class="text-[#A8A598] text-xs font-medium tracking-wider uppercase truncate" style="font-family: var(--mono);">${cliente}</span>
                                 </div>
                                 
-                                <!-- Abajo va únicamente la información del archivo -->
                                 <h3 class="text-[#FDFCF7] text-sm truncate mb-1">
-                                    ${nombreArchivo.replace('.html','')}
+                                    ${titulo}
                                 </h3>
                                 
-                                <!-- Se muestra visualmente la URL Completa para identificar la ubicación real -->
-                                <p class="text-[11px] text-[#A8A598] truncate select-all" style="font-family: var(--mono);">${urlCompleta}</p>
+                                <!-- Se muestra visualmente la URL Corta (/ir/) -->
+                                <p class="text-[11px] text-[#A8A598] truncate select-all" style="font-family: var(--mono);">${urlCorta}</p>
                             </div>
                             
                             <div class="flex flex-wrap gap-2 shrink-0">
-                                <!-- ABRIR: Usa la URL larga -->
-                                <a href="${urlCompleta}" target="_blank" rel="noopener noreferrer" class="bg-[#14151C] hover:bg-[#1E1F28] text-[#FDFCF7] text-xs px-3 py-2 rounded border border-[#1E1F28] transition-colors flex items-center gap-1" title="Abrir Documento">
+                                <!-- ABRIR: Ejecuta la ruta LARGA original de forma limpia -->
+                                <a href="${urlLarga}" target="_blank" rel="noopener noreferrer" class="bg-[#14151C] hover:bg-[#1E1F28] text-[#FDFCF7] text-xs px-3 py-2 rounded border border-[#1E1F28] transition-colors flex items-center gap-1" title="Abrir Documento">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                     Abrir
                                 </a>
                                 
-                                <!-- WHATSAPP Y EMAIL: Usan la URL Corta (/ir/) -->
+                                <!-- WA y CORREO: Comparten la ruta CORTA (/ir/) -->
                                 <a href="${linkWA}" target="_blank" rel="noopener noreferrer" class="bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] text-xs px-3 py-2 rounded border border-[#25D366]/30 transition-colors flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
                                     WA
@@ -411,7 +489,7 @@
                                     Correo
                                 </a>
                                 
-                                <!-- COPIAR: Copia la URL Corta (/ir/) -->
+                                <!-- COPIAR: Comparte la ruta CORTA (/ir/) -->
                                 <button onclick="copiarEnlaceDirecto('${urlCorta}', this)" class="bg-[#14151C] hover:bg-[#1E1F28] text-[#FDFCF7] text-xs px-3 py-2 rounded border border-[#1E1F28] transition-colors flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>
                                     Copiar
@@ -425,7 +503,6 @@
             contenedor.innerHTML = html;
         }
 
-        // Nueva función simplificada para copiar enlaces
         function copiarEnlaceDirecto(textoURL, boton) {
             const tempInput = document.createElement("textarea");
             tempInput.value = textoURL;
@@ -444,5 +521,4 @@
         }
     </script>
 </body>
-</html>
 </html>
