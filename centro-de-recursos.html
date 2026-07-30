@@ -310,9 +310,10 @@
             // 2. SOLO construimos tarjetas visuales usando la caja de los REALES.
             docsReal.forEach(realDoc => {
                 const cliente = extraerCliente(realDoc.path);
+                const tipoClasificado = clasificarTipo(realDoc.path, realDoc.repoOrigen);
                 
-                // ¡AQUÍ ESTÁ EL BLOQUEO! Ignoramos los archivos sueltos que caen en la categoría "General"
-                if (cliente === 'General') return;
+                // EXCEPCIÓN: Ignoramos los archivos "General" A MENOS que sean HUB de contenido.
+                if (cliente === 'General' && tipoClasificado !== 'HUB de contenido') return;
 
                 let partesReal = realDoc.path.split('/');
                 let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
@@ -334,9 +335,9 @@
                     dominio: realDoc.dominio,
                     realPath: realDoc.path,
                     shortPath: rutaCorta, 
-                    clienteExtraido: cliente, // Ya filtramos los "General" arriba
+                    clienteExtraido: cliente, 
                     tituloMostrado: nombreReal,
-                    tipoClasificado: clasificarTipo(realDoc.path, realDoc.repoOrigen)
+                    tipoClasificado: tipoClasificado
                 });
             });
 
