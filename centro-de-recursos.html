@@ -244,7 +244,6 @@
                                 item.path.endsWith('.html') && 
                                 !item.path.includes('404.html') && 
                                 !item.path.includes('buscador.html')
-                                // Eliminamos el bloqueo a la carpeta 'ir' para poder emparejarlos
                             )
                             .map(item => ({
                                 path: item.path,
@@ -271,7 +270,7 @@
                     return; 
                 }
 
-                // Aquí procesamos y fusionamos duplicados antes de guardar en todosLosDocumentos
+                // Filtrar y emparejar para que nunca se muestre la carpeta 'ir' como tarjeta visual
                 todosLosDocumentos = procesarDocumentosUnificados(documentosCombinados);
                 
                 syncText.innerText = 'Repositorios Sincronizados';
@@ -291,13 +290,13 @@
         }
 
         // ==========================================
-        // CEREBRO DE FUSIÓN (LONG URL + SHORT URL)
+        // CEREBRO DE FUSIÓN INVISIBLE (LONG URL + SHORT URL)
         // ==========================================
         function procesarDocumentosUnificados(docs) {
             let docsIR = [];
             let docsReal = [];
             
-            // Separar enlaces cortos y enlaces reales
+            // 1. Separamos los archivos en dos cajas: los cortos (ir) y los reales
             docs.forEach(doc => {
                 if (doc.path.toLowerCase().startsWith('ir/')) {
                     docsIR.push(doc);
@@ -307,58 +306,34 @@
             });
 
             let unificados = [];
-            let realDocsMatched = new Set();
 
-            // Para cada Shortlink (IR), buscamos su archivo real
-            docsIR.forEach(irDoc => {
-                let partesIr = irDoc.path.split('/');
-                let nombreIr = partesIr[partesIr.length - 1].replace('.html', '');
-                
-                let matchingReal = [...docsReal]
-                    .sort((a, b) => b.path.length - a.path.length) // Busca primero el match más exacto
-                    .find(realDoc => {
-                        let partesReal = realDoc.path.split('/');
-                        let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
-                        if(nombreReal.length < 4) return false; 
-                        return nombreIr.toLowerCase().includes(nombreReal.toLowerCase());
-                    });
-
-                if (matchingReal) {
-                    realDocsMatched.add(matchingReal.path); // Marcamos el archivo real como "fusionado"
-                    unificados.push({
-                        dominio: irDoc.dominio,
-                        realPath: matchingReal.path,        // ABRIR usará esta ruta larga
-                        shortPath: irDoc.path,              // COPIAR/WA usará esta ruta corta
-                        clienteExtraido: extraerCliente(matchingReal.path), // Extrae cliente de la carpeta original
-                        tituloMostrado: nombreIr,
-                        tipoClasificado: clasificarTipo(matchingReal.path, matchingReal.repoOrigen)
-                    });
-                } else {
-                    unificados.push({
-                        dominio: irDoc.dominio,
-                        realPath: irDoc.path,
-                        shortPath: irDoc.path,
-                        clienteExtraido: 'General',
-                        tituloMostrado: nombreIr,
-                        tipoClasificado: clasificarTipo(irDoc.path, irDoc.repoOrigen)
-                    });
-                }
-            });
-
-            // Agregamos los archivos reales que NO tienen shortlink creado (Para que nada quede por fuera)
+            // 2. SOLO construimos tarjetas visuales usando la caja de los REALES. 
+            // Los de la carpeta 'ir' jamás crearán una tarjeta visual.
             docsReal.forEach(realDoc => {
-                if (!realDocsMatched.has(realDoc.path)) {
-                    let partesReal = realDoc.path.split('/');
-                    let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
-                    unificados.push({
-                        dominio: realDoc.dominio,
-                        realPath: realDoc.path,
-                        shortPath: realDoc.path, // Al no tener shortlink, usan su propia ruta
-                        clienteExtraido: extraerCliente(realDoc.path),
-                        tituloMostrado: nombreReal,
-                        tipoClasificado: clasificarTipo(realDoc.path, realDoc.repoOrigen)
-                    });
-                }
+                let partesReal = realDoc.path.split('/');
+                let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
+                
+                // Limpiamos los nombres (sin guiones ni espacios) para encontrar parejas más fácil
+                let cleanReal = nombreReal.toLowerCase().replace(/[-_ ]/g, '');
+
+                // Buscamos si existe un archivo corto que se le parezca
+                let matchingIr = docsIR.find(irDoc => {
+                    let nombreIr = irDoc.path.split('/').pop().replace('.html', '');
+                    let cleanIr = nombreIr.toLowerCase().replace(/[-_ ]/g, '');
+                    return cleanReal.includes(cleanIr) || cleanIr.includes(cleanReal);
+                });
+
+                // Si encuentra una coincidencia, asigna esa ruta corta para los botones. Si no, deduce una.
+                let rutaCorta = matchingIr ? matchingIr.path : `ir/${nombreReal}.html`;
+
+                unificados.push({
+                    dominio: realDoc.dominio,
+                    realPath: realDoc.path,
+                    shortPath: rutaCorta, 
+                    clienteExtraido: extraerCliente(realDoc.path), // Siempre extrae del real
+                    tituloMostrado: nombreReal,                    // Siempre muestra el título real
+                    tipoClasificado: clasificarTipo(realDoc.path, realDoc.repoOrigen)
+                });
             });
 
             return unificados;
@@ -416,9 +391,12 @@
             let html = '';
 
             aMostrar.forEach((info, index) => {
-                const urlCorta = `https://${info.dominio}/${info.shortPath}`;
+                // RUTA LARGA ORIGINAL (Para abrir el informe directamente)
                 const urlLarga = `https://${info.dominio}/${info.realPath}`;
                 
+                // RUTA CORTA NATIVA (Para botones de compartir WA/Correo/Copiar)
+                const urlCorta = `https://${info.dominio}/${info.shortPath}`;
+
                 const cliente = info.clienteExtraido;
                 const tipo = info.tipoClasificado;
                 const titulo = info.tituloMostrado;
@@ -437,7 +415,7 @@
                     }
                 }
 
-                // Generación de mensajes usando urlCorta
+                // Generación de mensajes usando urlCorta para ocultar la ubicación interna
                 let textoMensaje = "";
                 let asuntoCorreo = `Documento MatixMedia: ${cliente} - ${tipo}`;
 
@@ -457,7 +435,7 @@
                     <div class="bg-[#0c0d13] border border-[#1E1F28] rounded-lg p-4 hover:border-[#A8A598] transition-colors">
                         <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
                             <div class="overflow-hidden flex-1">
-                                <!-- AQUÍ OCURRE LA MAGIA: Muestra cliente extraído de la ruta larga -->
+                                <!-- AQUÍ OCURRE LA MAGIA: Muestra cliente extraído de la ruta larga y tipo real -->
                                 <div class="mb-2 flex items-center gap-3">
                                     <span class="badge-status ${badgeClass}">${tipo}</span>
                                     <span class="text-[#A8A598] text-xs font-medium tracking-wider uppercase truncate" style="font-family: var(--mono);">${cliente}</span>
