@@ -270,7 +270,7 @@
                     return; 
                 }
 
-                // Filtrar y emparejar para que nunca se muestre la carpeta 'ir' como tarjeta visual
+                // Filtrar y emparejar
                 todosLosDocumentos = procesarDocumentosUnificados(documentosCombinados);
                 
                 syncText.innerText = 'Repositorios Sincronizados';
@@ -307,9 +307,13 @@
 
             let unificados = [];
 
-            // 2. SOLO construimos tarjetas visuales usando la caja de los REALES. 
-            // Los de la carpeta 'ir' jamás crearán una tarjeta visual.
+            // 2. SOLO construimos tarjetas visuales usando la caja de los REALES.
             docsReal.forEach(realDoc => {
+                const cliente = extraerCliente(realDoc.path);
+                
+                // ¡AQUÍ ESTÁ EL BLOQUEO! Ignoramos los archivos sueltos que caen en la categoría "General"
+                if (cliente === 'General') return;
+
                 let partesReal = realDoc.path.split('/');
                 let nombreReal = partesReal[partesReal.length - 1].replace('.html', '');
                 
@@ -330,8 +334,8 @@
                     dominio: realDoc.dominio,
                     realPath: realDoc.path,
                     shortPath: rutaCorta, 
-                    clienteExtraido: extraerCliente(realDoc.path), // Siempre extrae del real
-                    tituloMostrado: nombreReal,                    // Siempre muestra el título real
+                    clienteExtraido: cliente, // Ya filtramos los "General" arriba
+                    tituloMostrado: nombreReal,
                     tipoClasificado: clasificarTipo(realDoc.path, realDoc.repoOrigen)
                 });
             });
