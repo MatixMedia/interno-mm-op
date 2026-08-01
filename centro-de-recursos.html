@@ -60,7 +60,6 @@
         .footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px; max-width: 1024px; margin: 0 auto; padding: 0 24px;}
         .footer-brand{display:flex;align-items:center;gap:10px}
         
-        /* Ajuste del logo para centrado absoluto */
         .footer-logo{width:42px;height:42px;border-radius:50%;overflow:hidden;border:2px solid var(--accent); display:flex; justify-content:center; align-items:center;}
         .footer-logo img{width:100%;height:100%;object-fit:cover; object-position:center; transform-origin:center; transform: scale(1.05);}
         
@@ -76,14 +75,21 @@
         .footer-wa:hover{background:#20b858;}
         .footer-wa svg{width:14px;height:14px;fill:#fff;flex-shrink:0}
         @keyframes wa-shake{0%,85%,100%{transform:none}87%{transform:rotate(-12deg)}89%{transform:rotate(12deg)}91%{transform:rotate(-8deg)}93%{transform:rotate(8deg)}95%{transform:rotate(-4deg)}97%{transform:rotate(0)}}
+
+        /* RESPONSIVE MOBILE FIXES */
+        @media (max-width: 768px) {
+            .footer-inner { flex-direction: column; text-align: center; gap: 24px; padding: 0 16px; }
+            .footer-brand { flex-direction: column; justify-content: center; gap: 12px; }
+            .footer-links { flex-wrap: wrap; justify-content: center; }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between items-center">
     <div class="w-full max-w-5xl p-4 md:p-8 flex-1">
         
-        <!-- Header -->
-        <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1E1F28] pb-6 mt-4">
-            <div class="flex items-center gap-4">
+        <!-- Header (Actualizado con diseño centrado en mobile) -->
+        <header class="mb-6 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-4 border-b border-[#1E1F28] pb-6 mt-4 text-center md:text-left">
+            <div class="flex flex-col md:flex-row items-center gap-3 md:gap-4">
                 <div class="w-14 h-14 rounded-full border-2 border-[#E8C046] flex justify-center items-center overflow-hidden shrink-0">
                     <img src="https://raw.githubusercontent.com/MatixMedia/interno-mm-op/9479956aa727b81bf736abc2e34cd6e7c9ac5fa6/logo-oficial.png" alt="Logo MatixMedia" style="width: 100%; height: 100%; object-fit: cover; object-position: center; transform-origin: center; transform: scale(1.05);" onerror="this.style.display='none';">
                 </div>
@@ -92,7 +98,7 @@
                     <p class="text-sm text-[#A8A598]" style="font-family: var(--mono)">MatixMedia Portal</p>
                 </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex flex-wrap justify-center items-center gap-2 shrink-0">
                 <button onclick="location.reload()" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center text-[#A8A598] hover:text-white" title="Refrescar">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
