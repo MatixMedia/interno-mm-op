@@ -107,7 +107,7 @@
                 </button>
                 <button onclick="sincronizarGitHub()" id="btnSync" class="bg-[#14151C] hover:bg-[#1E1F28] border border-[#1E1F28] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
-                    <span id="syncText">Sincronizar Repositorios</span>
+                    <span id="syncText">Sincronizar</span>
                 </button>
             </div>
         </header>
@@ -229,7 +229,7 @@
             const syncText = document.getElementById('syncText');
             const searchInput = document.getElementById('searchInput');
 
-            syncText.innerHTML = '<span class="loader"></span> Sincronizando repositorios...';
+            syncText.innerHTML = '<span class="loader"></span> Sincronizando...';
             btnSync.disabled = true;
             document.getElementById('errorMsg').classList.add('hidden');
 
@@ -281,7 +281,7 @@
                 // Filtrar y emparejar
                 todosLosDocumentos = procesarDocumentosUnificados(documentosCombinados);
                 
-                syncText.innerText = 'Repositorios Sincronizados';
+                syncText.innerText = 'Sincronizado';
                 btnSync.classList.add('text-[#199477]', 'border-[#199477]');
                 
                 searchInput.disabled = false;
